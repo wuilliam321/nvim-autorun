@@ -1,8 +1,6 @@
 local config = {}
 
 local default_config = {
-    cmd = "go test ./...",
-    pattern = "*.go",
     window = {
         relative = 'editor',
         height = vim.api.nvim_win_get_height(0),

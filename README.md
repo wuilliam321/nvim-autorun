@@ -12,8 +12,6 @@ You can use any nvim package manager, for example, using packer.nvim:
         'wuilliam321/nvim-autorun',
         config = function()
             require('autorun').setup({
-                cmd = "go test ./...",
-                pattern = "*.go",
                 window = {
                     relative = 'editor',
                     height = vim.api.nvim_win_get_height(0) - 2,

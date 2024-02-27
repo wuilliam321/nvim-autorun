@@ -49,10 +49,12 @@ end
 vim.api.nvim_create_user_command("AutoRun", function()
     local group = vim.api.nvim_create_augroup("WL", { clear = true })
     local bufnr = vim.api.nvim_create_buf(false, true)
-    local command = vim.fn.split(default_opts.cmd, " ")
+    local command = vim.fn.split(vim.fn.input("Command> ", "go test ./..."), " ")
+    local pattern = vim.fn.input("Pattern> ", "*.go")
+
     vim.api.nvim_create_autocmd("BufWritePost", {
         group = group,
-        pattern = default_opts.pattern,
+        pattern = pattern,
         callback = function()
             execute(command, output_handler(bufnr))
         end
