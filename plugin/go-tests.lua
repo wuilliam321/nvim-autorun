@@ -1,8 +1,11 @@
+local config = require("autorun.config")
+local default_opts = config.get_defaults()
 local parsers = require('nvim-treesitter.parsers')
 local ts = vim.treesitter
 local ns = vim.api.nvim_create_namespace("go-tests")
 
 local tests = {}
+local output = {}
 
 local function_names_query = [[
     (package_clause (package_identifier) @package)
@@ -85,23 +88,21 @@ local show_results = function(bufnr)
             })
         end
         if test.failed and test.line then
-            local d = {
+            table.insert(diaginostics, {
                 bufnr = bufnr,
                 lnum = test.line,
                 col = 0,
                 message = "✗ Test failed",
                 severity = vim.diagnostic.severity.ERROR,
-            }
-            table.insert(diaginostics, d)
+            })
         end
     end
     if #diaginostics > 0 then
-        print("d", vim.inspect(diaginostics))
         vim.diagnostic.set(ns, bufnr, diaginostics, {})
     end
 end
 
-local set_success_test = function(decoded)
+local make_key = function(decoded)
     local key
     local pkg
     if decoded.Package ~= nil and decoded.Test ~= nil then
@@ -109,6 +110,11 @@ local set_success_test = function(decoded)
         pkg = parts[#parts]
         key = pkg .. "/" .. decoded.Test
     end
+    return key, pkg
+end
+
+local set_success_test = function(decoded)
+    local key, pkg = make_key(decoded)
     if key ~= nil then
         tests[key] = {
             key = key,
@@ -121,13 +127,7 @@ local set_success_test = function(decoded)
 end
 
 local set_failed_test = function(decoded)
-    local key
-    local pkg
-    if decoded.Package ~= nil and decoded.Test ~= nil then
-        local parts = vim.split(decoded.Package, "/")
-        pkg = parts[#parts]
-        key = pkg .. "/" .. decoded.Test
-    end
+    local key, pkg = make_key(decoded)
     if key ~= nil then
         tests[key] = {
             key = key,
@@ -136,6 +136,19 @@ local set_failed_test = function(decoded)
             success = false,
             failed = true,
         }
+    end
+end
+
+local add_test_output = function(decoded)
+    local key, _ = make_key(decoded)
+    if key ~= nil then
+        if output[key] == nil then
+            output[key] = {}
+        end
+        local out = decoded.Output:gsub("\n", "")
+        if out ~= "" then
+            table.insert(output[key], out)
+        end
     end
 end
 
@@ -154,17 +167,51 @@ local output_handler = function(_, data)
         if decoded.Action == "fail" then
             set_failed_test(decoded)
         end
+        if decoded.Action == "output" then
+            add_test_output(decoded)
+        end
+    end
+end
+
+-- DRY
+local winnr = -1
+local show_window = function(bufnr, opts)
+    if not vim.api.nvim_win_is_valid(winnr) then
+        winnr = vim.api.nvim_open_win(bufnr, false, {
+            relative = opts.relative,
+            row = opts.top,
+            col = opts.left,
+            width = opts.width,
+            height = opts.height,
+            style = opts.style,
+            border = opts.border,
+        })
+        vim.api.nvim_set_option_value('winblend', opts.transparent, { win = winnr })
+    end
+end
+
+local show_line_diagonstics = function(line)
+    for _, test in pairs(tests) do
+        if test.line == line then
+            local bufnr = vim.api.nvim_create_buf(false, true)
+            vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, output[test.key])
+            show_window(bufnr, default_opts.window)
+        end
     end
 end
 
 local execute = function(command, handler)
+    local bufnr = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_create_user_command(bufnr, "GoTestDiag", function()
+        local line = vim.fn.line(".") - 1
+        show_line_diagonstics(line)
+    end, {})
     vim.fn.jobstart(command, {
         stdout_buffered = true,
         stderr_buffered = true,
         on_stdout = handler,
         on_stderr = handler,
         on_exit = function()
-            local bufnr = vim.api.nvim_get_current_buf()
             find_lines(bufnr)
             show_results(bufnr)
         end
@@ -173,7 +220,6 @@ end
 
 vim.api.nvim_create_user_command("GoTests", function()
     local group = vim.api.nvim_create_augroup("WL", { clear = true })
-    local bufnr = vim.api.nvim_create_buf(false, true)
     local command = vim.fn.split("go test ./... -json -short", " ")
     local pattern = "*.go"
     vim.api.nvim_create_autocmd("BufWritePost", {
