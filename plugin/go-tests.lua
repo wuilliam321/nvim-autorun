@@ -191,9 +191,10 @@ local show_window = function(bufnr, opts)
 end
 
 local show_line_diagonstics = function(line)
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
     for _, test in pairs(tests) do
         if test.line == line then
-            local bufnr = vim.api.nvim_create_buf(false, true)
             vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, output[test.key])
             show_window(bufnr, default_opts.window)
         end
@@ -226,6 +227,8 @@ vim.api.nvim_create_user_command("GoTests", function()
         group = group,
         pattern = pattern,
         callback = function()
+            tests = {}
+            output = {}
             execute(command, output_handler)
         end
     })
