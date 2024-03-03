@@ -81,13 +81,13 @@ local show_results = function(bufnr)
     vim.diagnostic.reset(ns, bufnr)
     local diaginostics = {}
     for _, test in pairs(tests) do
-        if test.success and test.line then
+        if test.success and test.line and bufnr == test.bufnr then
             local text = { "✓ Test pass", "@string" }
             vim.api.nvim_buf_set_extmark(bufnr, ns, test.line, 0, {
                 virt_text = { text },
             })
         end
-        if test.failed and test.line then
+        if test.failed and test.line and bufnr == test.bufnr then
             table.insert(diaginostics, {
                 bufnr = bufnr,
                 lnum = test.line,
@@ -108,15 +108,24 @@ local make_key = function(decoded)
     if decoded.Package ~= nil and decoded.Test ~= nil then
         local parts = vim.split(decoded.Package, "/")
         pkg = parts[#parts]
-        key = pkg .. "/" .. decoded.Test
+        parts = vim.split(decoded.Test, "/")
+        local func_name = decoded.Test
+        for idx, part in ipairs(parts) do
+            part = part:gsub("\"", "")
+            part = part:gsub("[^%w\']+", "_")
+            parts[idx] = part
+        end
+        func_name = table.concat(parts, "/")
+        key = pkg .. "/" .. func_name
     end
     return key, pkg
 end
 
-local set_success_test = function(decoded)
+local set_success_test = function(bufnr, decoded)
     local key, pkg = make_key(decoded)
     if key ~= nil then
         tests[key] = {
+            bufnr = bufnr,
             key = key,
             name = decoded.Test,
             package = pkg,
@@ -126,10 +135,11 @@ local set_success_test = function(decoded)
     end
 end
 
-local set_failed_test = function(decoded)
+local set_failed_test = function(bufnr, decoded)
     local key, pkg = make_key(decoded)
     if key ~= nil then
         tests[key] = {
+            bufnr = bufnr,
             key = key,
             name = decoded.Test,
             package = pkg,
@@ -152,23 +162,25 @@ local add_test_output = function(decoded)
     end
 end
 
-local output_handler = function(_, data)
-    for _, line in ipairs(data) do
-        if not data then
-            return
-        end
-        if line == "" then
-            return
-        end
-        local decoded = vim.json.decode(line)
-        if decoded.Action == "pass" then
-            set_success_test(decoded)
-        end
-        if decoded.Action == "fail" then
-            set_failed_test(decoded)
-        end
-        if decoded.Action == "output" then
-            add_test_output(decoded)
+local output_handler = function(bufnr)
+    return function(_, data)
+        for _, line in ipairs(data) do
+            if not data then
+                return
+            end
+            if line == "" then
+                return
+            end
+            local decoded = vim.json.decode(line)
+            if decoded.Action == "pass" then
+                set_success_test(bufnr, decoded)
+            end
+            if decoded.Action == "fail" then
+                set_failed_test(bufnr, decoded)
+            end
+            if decoded.Action == "output" then
+                add_test_output(decoded)
+            end
         end
     end
 end
@@ -201,8 +213,7 @@ local show_line_diagonstics = function(line)
     end
 end
 
-local execute = function(command, handler)
-    local bufnr = vim.api.nvim_get_current_buf()
+local execute = function(bufnr, command, handler)
     vim.api.nvim_buf_create_user_command(bufnr, "GoTestDiag", function()
         local line = vim.fn.line(".") - 1
         show_line_diagonstics(line)
@@ -229,7 +240,8 @@ vim.api.nvim_create_user_command("GoTests", function()
         callback = function()
             tests = {}
             output = {}
-            execute(command, output_handler)
+            local bufnr = vim.api.nvim_get_current_buf()
+            execute(bufnr, command, output_handler(bufnr))
         end
     })
 end, {})
