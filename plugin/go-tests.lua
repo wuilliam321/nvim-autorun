@@ -22,7 +22,6 @@ local ts = vim.treesitter
 local ns = vim.api.nvim_create_namespace("go-tests")
 
 local tests = {}
-local success = {}
 
 local find_lines = function(bufnr)
     local root
@@ -69,7 +68,7 @@ local find_lines = function(bufnr)
             local name = query.captures[id]
 
             if name == "func_name" then
-                local line = node:range() + 1
+                local line = node:range()
                 local pattern = "[^%w\']+"
                 func_name = ts.get_node_text(node, 0)
                 func_name = func_name:gsub("\"", "")
@@ -78,7 +77,7 @@ local find_lines = function(bufnr)
             end
 
             if name == "func_sname" then
-                local line = node:range() + 1
+                local line = node:range()
                 local pattern = "[^%w\']+"
                 local func_sname = ts.get_node_text(node, 0)
                 func_sname = func_sname:gsub("\"", "")
@@ -94,9 +93,21 @@ local find_lines = function(bufnr)
 
     for _, v in pairs(names) do
         local key = pkg .. "/" .. v.name
-        print("key", pkg, key)
-        if key and success[key] then
-            success[key].Line = v.line
+        if key and tests[key] then
+            tests[key].line = v.line
+        end
+    end
+    -- print("tests", vim.inspect(tests))
+end
+
+local show_results = function(bufnr)
+    vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+    for _, test in pairs(tests) do
+        if test.success and test.line then
+            local text = { "✓", "AlphaShorcut" }
+            vim.api.nvim_buf_set_extmark(bufnr, ns, test.line, 0, {
+                virt_text = { text },
+            })
         end
     end
     -- print("tests", vim.inspect(tests))
@@ -112,41 +123,37 @@ local execute = function(command, handler)
         on_exit = function()
             local bufnr = vim.api.nvim_get_current_buf()
             find_lines(bufnr)
-            print("success", vim.inspect(success))
+            show_results(bufnr)
         end
     })
 end
 
-local output_handler = function(bufnr)
-    return function(_, data)
-        for _, line in ipairs(data) do
-            if not data then
-                return
+local output_handler = function(_, data)
+    for _, line in ipairs(data) do
+        if not data then
+            return
+        end
+
+        if line == "" then
+            return
+        end
+        local decoded = vim.json.decode(line)
+
+        if decoded.Action == "pass" then
+            local key
+            local pkg
+            if decoded.Package ~= nil and decoded.Test ~= nil then
+                local parts = vim.split(decoded.Package, "/")
+                pkg = parts[#parts]
+                key = pkg .. "/" .. decoded.Test
             end
-
-            if line == "" then
-                return
-            end
-            local decoded = vim.json.decode(line)
-
-            if decoded.Action == "pass" then
-                -- print("decoded", vim.inspect(decoded))
-                local key
-                local pkg
-
-                if decoded.Package ~= nil and decoded.Test ~= nil then
-                    local parts = vim.split(decoded.Package, "/")
-                    pkg = parts[#parts]
-                    key = pkg .. "/" .. decoded.Test
-                end
-
-                if key ~= nil then
-                    success[key] = {
-                        key = key,
-                        name = decoded.Test,
-                        package = pkg,
-                    }
-                end
+            if key ~= nil then
+                tests[key] = {
+                    key = key,
+                    name = decoded.Test,
+                    package = pkg,
+                    success = true,
+                }
             end
         end
     end
@@ -165,7 +172,7 @@ vim.api.nvim_create_user_command("GoTests", function()
         group = group,
         pattern = pattern,
         callback = function()
-            execute(command, output_handler(bufnr))
+            execute(command, output_handler)
         end
     })
 end, {})
