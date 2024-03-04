@@ -72,6 +72,7 @@ local find_lines = function(bufnr)
         local key = pkg .. "/" .. v.name
         if key and tests[key] then
             tests[key].line = v.line
+            tests[key].bufnr = bufnr
         end
     end
 end
@@ -79,26 +80,38 @@ end
 local show_results = function(bufnr)
     vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
     vim.diagnostic.reset(ns, bufnr)
+    find_lines(bufnr)
     local diaginostics = {}
     for _, test in pairs(tests) do
         if test.success and test.line and bufnr == test.bufnr then
-            local text = { "✓ Test pass", "@string" }
-            vim.api.nvim_buf_set_extmark(bufnr, ns, test.line, 0, {
+            local text = { "✓ PASS", "RedrawDebugComposed" }
+            vim.api.nvim_buf_set_extmark(bufnr, ns, test.line - 1, 0, {
                 virt_text = { text },
+                virt_text_pos = "inline",
+                sign_text = "✓",
             })
         end
         if test.failed and test.line and bufnr == test.bufnr then
             table.insert(diaginostics, {
                 bufnr = bufnr,
-                lnum = test.line,
+                lnum = test.line - 1,
                 col = 0,
-                message = "✗ Test failed",
+                message = "FAIL",
                 severity = vim.diagnostic.severity.ERROR,
             })
         end
     end
     if #diaginostics > 0 then
-        vim.diagnostic.set(ns, bufnr, diaginostics, {})
+        vim.diagnostic.set(ns, bufnr, diaginostics, {
+            virtual_text = {
+                virt_text_pos = "inline",
+                spacing = 0,
+                prefix = "✗",
+            },
+            signs = {
+                text = { "✗" },
+            }
+        })
     end
 end
 
@@ -121,11 +134,10 @@ local make_key = function(decoded)
     return key, pkg
 end
 
-local set_success_test = function(bufnr, decoded)
+local set_success_test = function(_, decoded)
     local key, pkg = make_key(decoded)
     if key ~= nil then
         tests[key] = {
-            bufnr = bufnr,
             key = key,
             name = decoded.Test,
             package = pkg,
@@ -135,11 +147,10 @@ local set_success_test = function(bufnr, decoded)
     end
 end
 
-local set_failed_test = function(bufnr, decoded)
+local set_failed_test = function(_, decoded)
     local key, pkg = make_key(decoded)
     if key ~= nil then
         tests[key] = {
-            bufnr = bufnr,
             key = key,
             name = decoded.Test,
             package = pkg,
@@ -224,7 +235,6 @@ local execute = function(bufnr, command, handler)
         on_stdout = handler,
         on_stderr = handler,
         on_exit = function()
-            find_lines(bufnr)
             show_results(bufnr)
         end
     })
@@ -242,6 +252,14 @@ vim.api.nvim_create_user_command("GoTests", function()
             output = {}
             local bufnr = vim.api.nvim_get_current_buf()
             execute(bufnr, command, output_handler(bufnr))
+        end
+    })
+    vim.api.nvim_create_autocmd("BufEnter", {
+        group = group,
+        pattern = pattern,
+        callback = function()
+            local bufnr = vim.api.nvim_get_current_buf()
+            show_results(bufnr)
         end
     })
 end, {})
