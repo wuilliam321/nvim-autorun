@@ -42,7 +42,6 @@ local find_lines = function(bufnr)
     local start_row, _, end_row, _ = root:range()
     local query = ts.query.parse("go", function_names_query)
     local names = {}
-    local pkg = ""
     for _, match, _ in query:iter_matches(root, bufnr, start_row, end_row) do
         local func_name
         for id, node in pairs(match) do
@@ -63,13 +62,10 @@ local find_lines = function(bufnr)
                 func_sname = func_sname:gsub(pattern, "_")
                 table.insert(names, { name = func_name .. "/" .. func_sname, line = line })
             end
-            if name == "package" and pkg == "" then
-                pkg = ts.get_node_text(node, 0)
-            end
         end
     end
     for _, v in pairs(names) do
-        local key = pkg .. "/" .. v.name
+        local key = v.name
         if key and tests[key] then
             tests[key].line = v.line
             tests[key].bufnr = bufnr
@@ -117,10 +113,8 @@ end
 
 local make_key = function(decoded)
     local key
-    local pkg
     if decoded.Package ~= nil and decoded.Test ~= nil then
         local parts = vim.split(decoded.Package, "/")
-        pkg = parts[#parts]
         parts = vim.split(decoded.Test, "/")
         local func_name = decoded.Test
         for idx, part in ipairs(parts) do
@@ -129,18 +123,17 @@ local make_key = function(decoded)
             parts[idx] = part
         end
         func_name = table.concat(parts, "/")
-        key = pkg .. "/" .. func_name
+        key = func_name
     end
-    return key, pkg
+    return key
 end
 
 local set_success_test = function(_, decoded)
-    local key, pkg = make_key(decoded)
+    local key = make_key(decoded)
     if key ~= nil then
         tests[key] = {
             key = key,
             name = decoded.Test,
-            package = pkg,
             success = true,
             failed = false,
         }
@@ -148,12 +141,11 @@ local set_success_test = function(_, decoded)
 end
 
 local set_failed_test = function(_, decoded)
-    local key, pkg = make_key(decoded)
+    local key = make_key(decoded)
     if key ~= nil then
         tests[key] = {
             key = key,
             name = decoded.Test,
-            package = pkg,
             success = false,
             failed = true,
         }
