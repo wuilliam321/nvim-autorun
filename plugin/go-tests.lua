@@ -47,20 +47,28 @@ local find_lines = function(bufnr)
         for id, node in pairs(match) do
             local name = query.captures[id]
             if name == "func_name" then
-                local line = node:range()
+                local row, col, _, _ = node:range()
                 local pattern = "[^%w\']+"
                 func_name = ts.get_node_text(node, 0)
                 func_name = func_name:gsub("\"", "")
                 func_name = func_name:gsub(pattern, "_")
-                table.insert(names, { name = func_name, line = line })
+                table.insert(names, {
+                    name = func_name,
+                    line = row,
+                    col = col
+                })
             end
             if name == "func_sname" then
-                local line = node:range()
+                local row, col, _, _ = node:range()
                 local pattern = "[^%w\']+"
                 local func_sname = ts.get_node_text(node, 0)
                 func_sname = func_sname:gsub("\"", "")
                 func_sname = func_sname:gsub(pattern, "_")
-                table.insert(names, { name = func_name .. "/" .. func_sname, line = line })
+                table.insert(names, {
+                    name = func_name .. "/" .. func_sname,
+                    line = row,
+                    col = col
+                })
             end
         end
     end
@@ -68,6 +76,7 @@ local find_lines = function(bufnr)
         local key = v.name
         if key and tests[key] then
             tests[key].line = v.line
+            tests[key].col = v.col
             tests[key].bufnr = bufnr
         end
     end
@@ -80,8 +89,8 @@ local show_results = function(bufnr)
     local diaginostics = {}
     for _, test in pairs(tests) do
         if test.success and test.line and bufnr == test.bufnr then
-            local text = { "✓ PASS", "RedrawDebugComposed" }
-            vim.api.nvim_buf_set_extmark(bufnr, ns, test.line - 1, 0, {
+            local text = { "✓ PASS ", "RedrawDebugComposed" }
+            vim.api.nvim_buf_set_extmark(bufnr, ns, test.line, 0, {
                 virt_text = { text },
                 virt_text_pos = "inline",
                 sign_text = "✓",
@@ -90,9 +99,9 @@ local show_results = function(bufnr)
         if test.failed and test.line and bufnr == test.bufnr then
             table.insert(diaginostics, {
                 bufnr = bufnr,
-                lnum = test.line - 1,
-                col = 0,
-                message = "FAIL",
+                lnum = test.line,
+                col = test.col,
+                message = "FAIL ",
                 severity = vim.diagnostic.severity.ERROR,
             })
         end
@@ -174,15 +183,17 @@ local output_handler = function(bufnr)
             if line == "" then
                 return
             end
-            local decoded = vim.json.decode(line)
-            if decoded.Action == "pass" then
-                set_success_test(bufnr, decoded)
-            end
-            if decoded.Action == "fail" then
-                set_failed_test(bufnr, decoded)
-            end
-            if decoded.Action == "output" then
-                add_test_output(decoded)
+            local success, decoded = pcall(vim.json.decode, line)
+            if success then
+                if decoded.Action == "pass" then
+                    set_success_test(bufnr, decoded)
+                end
+                if decoded.Action == "fail" then
+                    set_failed_test(bufnr, decoded)
+                end
+                if decoded.Action == "output" then
+                    add_test_output(decoded)
+                end
             end
         end
     end
