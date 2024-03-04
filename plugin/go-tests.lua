@@ -226,7 +226,7 @@ end
 
 local execute = function(bufnr, command, handler)
     vim.api.nvim_buf_create_user_command(bufnr, "GoTestDiag", function()
-        local line = vim.fn.line(".") - 1
+        local line = vim.fn.line(".")
         show_line_diagonstics(line)
     end, {})
     vim.fn.jobstart(command, {
