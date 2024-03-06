@@ -1,6 +1,6 @@
 local parsers = require('nvim-treesitter.parsers')
 local ts = vim.treesitter
-local ns = vim.api.nvim_create_namespace("go-tests")
+local ns = vim.api.nvim_create_namespace("go-returns")
 
 local function get_visible_viewport()
     local current_win = vim.api.nvim_get_current_win()

@@ -82,6 +82,9 @@ local find_lines = function(bufnr)
     end
 end
 
+
+-- TODO: save each extmark in a table and delete it when the test is fixed, use the line to detect the test
+
 local show_results = function(bufnr)
     vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
     vim.diagnostic.reset(ns, bufnr)
@@ -229,7 +232,7 @@ end
 
 local execute = function(bufnr, command, handler)
     vim.api.nvim_buf_create_user_command(bufnr, "GoTestDiag", function()
-        local line = vim.fn.line(".")
+        local line = vim.fn.line(".") - 1
         show_line_diagonstics(line)
     end, {})
     vim.fn.jobstart(command, {
