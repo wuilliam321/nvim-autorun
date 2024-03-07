@@ -15,6 +15,8 @@ M.setup = function(opts)
     if cfg.go_tests then
         require("autorun.go-tests").autorun()
     end
+
+    require("autorun.autorun").setup()
 end
 
 
