@@ -1,6 +1,8 @@
 local config = {}
 
 local default_config = {
+    show_returns = true,
+    go_tests = true,
     window = {
         relative = 'editor',
         height = vim.api.nvim_win_get_height(0),
@@ -15,6 +17,7 @@ local default_config = {
 
 config.set_defaults = function(opts)
     config = vim.tbl_extend("force", default_config, opts)
+    return config
 end
 
 config.get_defaults = function()

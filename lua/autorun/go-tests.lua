@@ -246,7 +246,10 @@ local execute = function(bufnr, command, handler)
     })
 end
 
-vim.api.nvim_create_user_command("GoTests", function()
+local M = {}
+
+M.autorun = function()
+    -- TODO: create commands to start / stop the plugin
     local group = vim.api.nvim_create_augroup("WL", { clear = true })
     local command = vim.fn.split("go test ./... -json -short", " ")
     local pattern = "*.go"
@@ -268,4 +271,6 @@ vim.api.nvim_create_user_command("GoTests", function()
             show_results(bufnr)
         end
     })
-end, {})
+end
+
+return M

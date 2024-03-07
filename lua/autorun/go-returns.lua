@@ -129,19 +129,6 @@ local show_return_types = function(from, to)
     end, 200)
 end
 
-vim.api.nvim_create_user_command("GoReturns", function()
-    local first_line, last_line = get_visible_viewport()
-    show_return_types(first_line, last_line)
-    local group = vim.api.nvim_create_augroup("WLa", { clear = true })
-    vim.api.nvim_create_autocmd({ "BufWritePost" }, {
-        group = group,
-        pattern = "*.go",
-        callback = function()
-            first_line, last_line = get_visible_viewport()
-            show_return_types(first_line, last_line)
-        end
-    })
-end, {})
 
 -- TODO: make a better refresh, maybe with a timer, maybe debounce
 
@@ -158,3 +145,23 @@ end, {})
 --     end
 -- })
 -- -- end, {})
+
+
+local M = {}
+
+M.show = function()
+    -- TODO: create commands to show and hide return types
+    local first_line, last_line = get_visible_viewport()
+    show_return_types(first_line, last_line)
+    local group = vim.api.nvim_create_augroup("WLa", { clear = true })
+    vim.api.nvim_create_autocmd({ "BufWritePost" }, {
+        group = group,
+        pattern = "*.go",
+        callback = function()
+            first_line, last_line = get_visible_viewport()
+            show_return_types(first_line, last_line)
+        end
+    })
+end
+
+return M
