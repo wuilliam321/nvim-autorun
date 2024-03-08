@@ -28,6 +28,7 @@ end
 
 local output_handler = function(bufnr)
     return function(_, data)
+        -- TODO: put the whole output into a buffer to be able to view it later
         if not valid_output(data) then
             return
         end
@@ -50,21 +51,22 @@ end
 local M = {}
 
 M.setup = function()
-    print("setup autorun.autorun")
-    vim.api.nvim_create_user_command("AutoRun", function()
-        local group = vim.api.nvim_create_augroup("WL-ar", { clear = true })
-        local bufnr = vim.api.nvim_create_buf(false, true)
-        local command = vim.fn.split(vim.fn.input("Command> ", "go test ./..."), " ")
-        local pattern = vim.fn.input("Pattern> ", "*.go")
+    -- vim.api.nvim_create_user_command("AutoRun", function()
+    local group = vim.api.nvim_create_augroup("WL-ar", { clear = true })
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    -- local command = vim.fn.split(vim.fn.input("Command> ", "go test ./..."), " ")
+    -- local pattern = vim.fn.input("Pattern> ", "*.go")
+    local command = vim.fn.split("go test ./...")
+    local pattern = "*.go"
 
-        vim.api.nvim_create_autocmd("BufWritePost", {
-            group = group,
-            pattern = pattern,
-            callback = function()
-                execute(command, output_handler(bufnr))
-            end
-        })
-    end, {})
+    vim.api.nvim_create_autocmd("BufWritePost", {
+        group = group,
+        pattern = pattern,
+        callback = function()
+            execute(command, output_handler(bufnr))
+        end
+    })
+    -- end, {})
 end
 
 return M

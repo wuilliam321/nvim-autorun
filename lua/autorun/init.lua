@@ -9,7 +9,7 @@ M.setup = function(opts)
     local cfg = require("autorun.config").set_defaults(opts)
 
     if cfg.show_returns then
-        require("autorun.go-returns").show()
+        require("autorun.go-returns").show_on_cursor_move()
     end
 
     if cfg.go_tests then

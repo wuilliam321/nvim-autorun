@@ -40,48 +40,49 @@ local function function_definition_types(definition)
     return types
 end
 
-local var_query = [[
+local call_query = [[
+(call_expression
+    function: (identifier) @call)
+
 (call_expression
     function: (selector_expression
         field: (field_identifier) @call))
-
-(call_expression
-    function: (identifier) @call)
 ]]
 
 local return_types = {}
-local extract_node_return_types = function(node)
-    return function(results)
-        for _, result in pairs(results) do
-            if not result then
-                return
-            end
-            if result.error then
-                return
-            end
-            if not result.result then
-                return
-            end
+local extract_node_return_types = function(node, results)
+    if not results then
+        return
+    end
+    for _, result in pairs(results) do
+        if not result then
+            return
+        end
+        if result.error then
+            return
+        end
+        if not result.result then
+            return
+        end
 
-            local type
-            local function_definition = string.match(result.result.contents.value, "```go\n(.*)\n```")
+        local type
+        local function_definition = string.match(result.result.contents.value, "```go\n(.*)\n```")
 
-            local types = function_definition_types(function_definition)
-            if #types == 1 then
-                type = types[1]
-            end
+        local types = function_definition_types(function_definition)
+        if #types == 1 then
+            type = types[1]
+        end
 
-            if #types > 1 then
-                type = table.concat(types, ", ")
-            end
+        if #types > 1 then
+            type = table.concat(types, ", ")
+        end
 
-            if type then
-                local line, _, _, _ = node:range()
-                table.insert(return_types, {
-                    text = type,
-                    line = line,
-                })
-            end
+        if type then
+            local line, _, _, _ = node:range()
+            table.insert(return_types, {
+                text = type,
+                line = line,
+            })
         end
     end
 end
@@ -104,29 +105,33 @@ local show_return_types = function(from, to)
 
 
     return_types = {}
-    local query = ts.query.parse("go", var_query)
+    local query = ts.query.parse("go", call_query)
     for _, match, _ in query:iter_matches(root, 0, start_row, end_row) do
         for id, node in pairs(match) do
             local name = query.captures[id]
             if name == "call" then
-                local line, col, _, _ = node:range()
-                local params = vim.lsp.util.make_position_params()
-                params.position.line = line
-                params.position.character = col
-                vim.lsp.buf_request_all(0, 'textDocument/hover', params, extract_node_return_types(node))
+                local line, col, next_line, _ = node:range()
+                -- if line is in between from and to
+                if line >= from and line < to then
+                    local params = vim.lsp.util.make_position_params()
+                    params.position.line = line
+                    params.position.character = col
+                    local results = vim.lsp.buf_request_sync(0, 'textDocument/hover', params, 1000)
+                    extract_node_return_types(node, results)
+                end
             end
         end
     end
-    vim.defer_fn(function()
-        if #return_types == 0 then
-            return
-        end
-        for _, r in pairs(return_types) do
-            vim.api.nvim_buf_set_extmark(0, ns, r.line, -1, {
-                virt_text = { { "-> (" .. r.text .. ")", "@comment" } },
-            })
-        end
-    end, 200)
+    -- vim.defer_fn(function()
+    if #return_types == 0 then
+        return
+    end
+    for _, r in pairs(return_types) do
+        vim.api.nvim_buf_set_extmark(0, ns, r.line, -1, {
+            virt_text = { { "-> (" .. r.text .. ")", { "CursorColumn", "@attribute" } } },
+        })
+    end
+    -- end, 200)
 end
 
 
@@ -140,20 +145,31 @@ end
 --     callback = function()
 --         -- Example usage
 --         local first_line, last_line = getVisibleViewport()
---         print("First", first_line, "last", last_line)
 --         show_return_types(first_line, last_line)
 --     end
 -- })
 -- -- end, {})
 
+local function debounce(func, timeout)
+    local timer_id
+    return function(...)
+        if timer_id ~= nil then
+            vim.fn.timer_stop(timer_id)
+        end
+        local args = { ... }
+        timer_id = vim.fn.timer_start(timeout, function()
+            func(unpack(args))
+        end)
+    end
+end
 
 local M = {}
 
-M.show = function()
+M.show_on_save = function()
     -- TODO: create commands to show and hide return types
     local first_line, last_line = get_visible_viewport()
     show_return_types(first_line, last_line)
-    local group = vim.api.nvim_create_augroup("WLa", { clear = true })
+    local group = vim.api.nvim_create_augroup("WLav", { clear = true })
     vim.api.nvim_create_autocmd({ "BufWritePost" }, {
         group = group,
         pattern = "*.go",
@@ -161,6 +177,20 @@ M.show = function()
             first_line, last_line = get_visible_viewport()
             show_return_types(first_line, last_line)
         end
+    })
+end
+
+M.show_on_cursor_move = function()
+    local current_line = vim.fn.line(".")
+    show_return_types(current_line - 1, current_line)
+    local group = vim.api.nvim_create_augroup("WLam", { clear = true })
+    vim.api.nvim_create_autocmd({ "CursorHold" }, {
+        group = group,
+        pattern = "*.go",
+        callback = debounce(function()
+            current_line = vim.fn.line(".")
+            show_return_types(current_line - 1, current_line)
+        end, 200)
     })
 end
 
