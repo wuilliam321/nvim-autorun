@@ -1,4 +1,5 @@
 local config = require("autorun.config")
+local window = require("autorun.window")
 
 local default_opts = config.get_defaults()
 
@@ -7,34 +8,14 @@ local valid_output = function(data)
 end
 
 local winnr = -1
-local show_window = function(bufnr, opts)
-    if not vim.api.nvim_win_is_valid(winnr) then
-        winnr = vim.api.nvim_open_win(bufnr, false, {
-            relative = opts.relative,
-            row = opts.top,
-            col = opts.left,
-            width = opts.width,
-            height = opts.height,
-            style = opts.style,
-            border = opts.border,
-        })
-        vim.api.nvim_set_option_value('winblend', opts.transparent, { win = winnr })
-    end
-end
-
-local write_data = function(bufnr, data)
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, data)
-end
-
 local output_handler = function(bufnr)
     return function(_, data)
         -- TODO: put the whole output into a buffer to be able to view it later
         if not valid_output(data) then
             return
         end
-
-        show_window(bufnr, default_opts.window)
-        write_data(bufnr, data)
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, data)
+        winnr = window.show(winnr, bufnr, default_opts.window)
     end
 end
 
@@ -56,7 +37,7 @@ M.setup = function()
     local bufnr = vim.api.nvim_create_buf(false, true)
     -- local command = vim.fn.split(vim.fn.input("Command> ", "go test ./..."), " ")
     -- local pattern = vim.fn.input("Pattern> ", "*.go")
-    local command = vim.fn.split("go test ./...")
+    local command = vim.fn.split("go test ./... -short")
     local pattern = "*.go"
 
     vim.api.nvim_create_autocmd("BufWritePost", {
