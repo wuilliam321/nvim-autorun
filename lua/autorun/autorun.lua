@@ -44,6 +44,9 @@ M.setup = function()
         group = group,
         pattern = pattern,
         callback = function()
+            if vim.api.nvim_win_is_valid(winnr) then
+                vim.api.nvim_win_close(winnr, true)
+            end
             execute(command, output_handler(bufnr))
         end
     })

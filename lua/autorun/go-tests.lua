@@ -247,6 +247,9 @@ M.autorun = function()
         callback = function()
             tests = {}
             output = {}
+            if vim.api.nvim_win_is_valid(winnr) then
+                vim.api.nvim_win_close(winnr, true)
+            end
             local bufnr = vim.api.nvim_get_current_buf()
             execute(bufnr, command, output_handler(bufnr))
         end
