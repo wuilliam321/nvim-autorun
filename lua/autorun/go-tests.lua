@@ -93,10 +93,11 @@ local show_results = function(bufnr)
     local diaginostics = {}
     for _, test in pairs(tests) do
         if test.success and test.line and bufnr == test.bufnr then
-            local text = { "✓ PASS ", "RedrawDebugComposed" }
+            local text = { " PASS ", "RedrawDebugComposed" }
             vim.api.nvim_buf_set_extmark(bufnr, ns, test.line, 0, {
                 virt_text = { text },
                 virt_text_pos = "inline",
+                -- spacing = 1,
                 sign_text = "✓",
             })
         end
@@ -114,8 +115,9 @@ local show_results = function(bufnr)
         vim.diagnostic.set(ns, bufnr, diaginostics, {
             virtual_text = {
                 virt_text_pos = "inline",
-                spacing = 0,
-                prefix = "✗",
+                -- spacing = 1,
+                prefix = "",
+                sign_text = "✗",
             },
             signs = {
                 text = { "✗" },
@@ -227,6 +229,7 @@ local execute = function(bufnr, command, handler)
         on_stderr = handler,
         on_exit = function()
             show_results(bufnr)
+            -- TODO: aqui puede ir el llamada de nuevo, desde cache, para mostrar el output
         end
     })
 end
