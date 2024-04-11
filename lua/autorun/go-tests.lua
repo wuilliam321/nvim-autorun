@@ -50,6 +50,9 @@ local find_lines = function(bufnr)
             local name = query.captures[id]
             if name == "package" then
                 pkg_name = ts.get_node_text(node, 0)
+                if string.find(pkg_name, "_test") then
+                    pkg_name = pkg_name:gsub("_test", "")
+                end
             end
             if name == "func_name" then
                 local row, col, _, _ = node:range()
@@ -144,6 +147,9 @@ local make_key = function(decoded)
         end
         func_name = table.concat(parts, "/")
         local pkg_name = pkg_parts[#pkg_parts]
+        if string.find(pkg_name, "_test") then
+            pkg_name = pkg_name:gsub("_test", "")
+        end
         key = pkg_name .. "_" .. func_name
     end
     return key
