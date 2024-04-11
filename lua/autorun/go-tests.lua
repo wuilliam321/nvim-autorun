@@ -31,6 +31,36 @@ local function_names_query = [[
             )
         )?
     )
+    (function_declaration
+      name: (identifier) @func_name
+      (parameter_list
+          (parameter_declaration) @type (#eq? @type "t *testing.T")
+      )
+      body: (block
+        (short_var_declaration
+          left: (expression_list
+            (identifier) @tt (#eq? @tt "tt"))
+          right: (expression_list
+            (composite_literal
+              body: (literal_value
+                (literal_element
+                  (literal_value
+                    (keyed_element
+                      (literal_element
+                        (identifier) @tid (#eq? @tid "name")
+                      )
+                      (literal_element
+                        (interpreted_string_literal) @tc
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
 ]]
 
 local find_lines = function(bufnr)
@@ -60,8 +90,9 @@ local find_lines = function(bufnr)
                 func_name = ts.get_node_text(node, 0)
                 func_name = func_name:gsub("\"", "")
                 func_name = func_name:gsub(pattern, "_")
+                local n = pkg_name .. "_" .. func_name
                 table.insert(names, {
-                    name = pkg_name .. "_" .. func_name,
+                    name = n,
                     line = row,
                     col = col
                 })
@@ -72,8 +103,22 @@ local find_lines = function(bufnr)
                 local func_sname = ts.get_node_text(node, 0)
                 func_sname = func_sname:gsub("\"", "")
                 func_sname = func_sname:gsub(pattern, "_")
+                local n = pkg_name .. "_" .. func_name .. "/" .. func_sname
                 table.insert(names, {
-                    name = pkg_name .. "_" .. func_name .. "/" .. func_sname,
+                    name = n,
+                    line = row,
+                    col = col
+                })
+            end
+            if name == "tc" then
+                local row, col, _, _ = node:range()
+                local pattern = "[^%w\']+"
+                local func_sname = ts.get_node_text(node, 0)
+                func_sname = func_sname:gsub("\"", "")
+                func_sname = func_sname:gsub(pattern, "_")
+                local n = pkg_name .. "_" .. func_name .. "/" .. func_sname
+                table.insert(names, {
+                    name = n,
                     line = row,
                     col = col
                 })
@@ -170,6 +215,8 @@ end
 local set_failed_test = function(_, decoded)
     local key = make_key(decoded)
     if key ~= nil then
+        print(key)
+        print(vim.inspect(decoded))
         tests[key] = {
             key = key,
             name = decoded.Test,
