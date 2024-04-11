@@ -145,10 +145,10 @@ local show_results = function(bufnr)
     local diaginostics = {}
     for _, test in pairs(tests) do
         if test.success and test.line and bufnr == test.bufnr then
-            local text = { " PASS ", "RedrawDebugComposed" }
-            vim.api.nvim_buf_set_extmark(bufnr, ns, test.line, 0, {
+            local text = { " ✓ PASS ", "RedrawDebugComposed" }
+            vim.api.nvim_buf_set_extmark(bufnr, ns, test.line, -1, {
                 virt_text = { text },
-                virt_text_pos = "inline",
+                virt_text_pos = "eol",
                 -- spacing = 1,
                 sign_text = "✓",
             })
@@ -158,7 +158,7 @@ local show_results = function(bufnr)
                 bufnr = bufnr,
                 lnum = test.line,
                 col = test.col,
-                message = "FAIL ",
+                message = "✗ Test " .. test.name .. " FAIL ",
                 severity = vim.diagnostic.severity.ERROR,
             }
             table.insert(diaginostics, t)
@@ -167,8 +167,8 @@ local show_results = function(bufnr)
     if #diaginostics > 0 then
         vim.diagnostic.set(ns, bufnr, diaginostics, {
             virtual_text = {
-                virt_text_pos = "inline",
-                -- spacing = 1,
+                virt_text_pos = "eol",
+                spacing = 1,
                 prefix = "",
                 sign_text = "✗",
             },
@@ -215,8 +215,6 @@ end
 local set_failed_test = function(_, decoded)
     local key = make_key(decoded)
     if key ~= nil then
-        print(key)
-        print(vim.inspect(decoded))
         tests[key] = {
             key = key,
             name = decoded.Test,
