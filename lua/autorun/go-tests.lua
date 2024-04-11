@@ -43,10 +43,14 @@ local find_lines = function(bufnr)
     local start_row, _, end_row, _ = root:range()
     local query = ts.query.parse("go", function_names_query)
     local names = {}
+    local pkg_name = ""
     for _, match, _ in query:iter_matches(root, bufnr, start_row, end_row) do
         local func_name
         for id, node in pairs(match) do
             local name = query.captures[id]
+            if name == "package" then
+                pkg_name = ts.get_node_text(node, 0)
+            end
             if name == "func_name" then
                 local row, col, _, _ = node:range()
                 local pattern = "[^%w\']+"
@@ -54,7 +58,7 @@ local find_lines = function(bufnr)
                 func_name = func_name:gsub("\"", "")
                 func_name = func_name:gsub(pattern, "_")
                 table.insert(names, {
-                    name = func_name,
+                    name = pkg_name .. "_" .. func_name,
                     line = row,
                     col = col
                 })
@@ -66,7 +70,7 @@ local find_lines = function(bufnr)
                 func_sname = func_sname:gsub("\"", "")
                 func_sname = func_sname:gsub(pattern, "_")
                 table.insert(names, {
-                    name = func_name .. "/" .. func_sname,
+                    name = pkg_name .. "_" .. func_name .. "/" .. func_sname,
                     line = row,
                     col = col
                 })
@@ -102,13 +106,14 @@ local show_results = function(bufnr)
             })
         end
         if test.failed and test.line and bufnr == test.bufnr then
-            table.insert(diaginostics, {
+            local t = {
                 bufnr = bufnr,
                 lnum = test.line,
                 col = test.col,
                 message = "FAIL ",
                 severity = vim.diagnostic.severity.ERROR,
-            })
+            }
+            table.insert(diaginostics, t)
         end
     end
     if #diaginostics > 0 then
@@ -129,8 +134,8 @@ end
 local make_key = function(decoded)
     local key
     if decoded.Package ~= nil and decoded.Test ~= nil then
-        local parts = vim.split(decoded.Package, "/")
-        parts = vim.split(decoded.Test, "/")
+        local pkg_parts = vim.split(decoded.Package, "/")
+        local parts = vim.split(decoded.Test, "/")
         local func_name = decoded.Test
         for idx, part in ipairs(parts) do
             part = part:gsub("\"", "")
@@ -138,7 +143,8 @@ local make_key = function(decoded)
             parts[idx] = part
         end
         func_name = table.concat(parts, "/")
-        key = func_name
+        local pkg_name = pkg_parts[#pkg_parts]
+        key = pkg_name .. "_" .. func_name
     end
     return key
 end
@@ -254,14 +260,14 @@ M.autorun = function()
             execute(bufnr, command, output_handler(bufnr))
         end
     })
-    vim.api.nvim_create_autocmd("BufEnter", {
-        group = group,
-        pattern = pattern,
-        callback = function()
-            local bufnr = vim.api.nvim_get_current_buf()
-            show_results(bufnr)
-        end
-    })
+    -- vim.api.nvim_create_autocmd("BufEnter", {
+    --     group = group,
+    --     pattern = pattern,
+    --     callback = function()
+    --         local bufnr = vim.api.nvim_get_current_buf()
+    --         show_results(bufnr)
+    --     end
+    -- })
 end
 
 return M
