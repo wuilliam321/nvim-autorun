@@ -260,14 +260,14 @@ M.autorun = function()
             execute(bufnr, command, output_handler(bufnr))
         end
     })
-    -- vim.api.nvim_create_autocmd("BufEnter", {
-    --     group = group,
-    --     pattern = pattern,
-    --     callback = function()
-    --         local bufnr = vim.api.nvim_get_current_buf()
-    --         show_results(bufnr)
-    --     end
-    -- })
+    vim.api.nvim_create_autocmd("BufEnter", {
+        group = group,
+        pattern = pattern,
+        callback = function()
+            local bufnr = vim.api.nvim_get_current_buf()
+            show_results(bufnr)
+        end
+    })
 end
 
 return M
