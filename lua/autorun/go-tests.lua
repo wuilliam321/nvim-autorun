@@ -61,6 +61,31 @@ local function_names_query = [[
         )
       )
     )
+    (function_declaration
+      name: (identifier) @func_name
+      (parameter_list
+          (parameter_declaration) @type (#eq? @type "t *testing.T")
+      )
+      body: (block
+        (short_var_declaration
+          left: (expression_list
+            (identifier) @tt (#eq? @tt "tt"))
+          right: (expression_list
+            (composite_literal
+              body: (literal_value
+                (literal_element
+                  (literal_value
+                    . (literal_element
+                        (interpreted_string_literal) @tc
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
 ]]
 
 local find_lines = function(bufnr)

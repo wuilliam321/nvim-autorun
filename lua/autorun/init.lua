@@ -19,7 +19,7 @@ M.setup = function(opts)
     end
 
     -- TODO: make it customizable by options
-    require("autorun.autorun").setup()
+    -- require("autorun.autorun").setup()
 end
 
 
