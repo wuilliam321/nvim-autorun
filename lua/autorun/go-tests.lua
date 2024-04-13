@@ -182,7 +182,6 @@ end
 local make_key = function(decoded)
     local key
     if decoded.Package ~= nil and decoded.Test ~= nil then
-        local pkg_parts = vim.split(decoded.Package, "/")
         local parts = vim.split(decoded.Test, "/")
         local func_name = decoded.Test
         for idx, part in ipairs(parts) do
@@ -191,11 +190,19 @@ local make_key = function(decoded)
             parts[idx] = part
         end
         func_name = table.concat(parts, "/")
-        local pkg_name = pkg_parts[#pkg_parts]
-        if string.find(pkg_name, "_test") then
-            pkg_name = pkg_name:gsub("_test", "")
+
+        local pkg_parts = vim.split(decoded.Package, "/")
+        if #pkg_parts > 3 then
+            local pkg_name = pkg_parts[#pkg_parts]
+            if string.find(pkg_name, "_test") then
+                pkg_name = pkg_name:gsub("_test", "")
+            end
+            key = pkg_name .. "_" .. func_name
         end
-        key = pkg_name .. "_" .. func_name
+        -- TODO: just for the tests on golang root projects, assuming package name is main
+        if #pkg_parts == 3 then
+            key = "main" .. "_" .. func_name
+        end
     end
     return key
 end
