@@ -307,6 +307,10 @@ local show_line_diagonstics = function(line)
 end
 
 local execute = function(bufnr, command, handler)
+    if vim.api.nvim_win_is_valid(winnr) then
+        vim.api.nvim_win_close(winnr, true)
+    end
+
     vim.api.nvim_buf_create_user_command(bufnr, "GoTestDiag", function()
         local line = vim.fn.line(".") - 1
         show_line_diagonstics(line)
@@ -323,6 +327,17 @@ local execute = function(bufnr, command, handler)
     })
 end
 
+local test_method = function(bufnr)
+    local func_name = vim.fn['cfi#format']("%s", "")
+    if not func_name or func_name == "" then
+        return
+    end
+    func_name = func_name:gsub("\"", "")
+    func_name = func_name:gsub("[^%w\']+", "_")
+    local cmd = vim.fn.split(string.format("go test ./... -run %s -json -short", func_name), " ")
+    execute(bufnr, cmd, output_handler(bufnr))
+end
+
 local M = {}
 
 M.autorun = function()
@@ -330,19 +345,18 @@ M.autorun = function()
     local group = vim.api.nvim_create_augroup("WL", { clear = true })
     local command = vim.fn.split("go test ./... -json -short", " ")
     local pattern = "*.go"
+
     vim.api.nvim_create_autocmd("BufWritePost", {
         group = group,
         pattern = pattern,
         callback = function()
             tests = {}
             output = {}
-            if vim.api.nvim_win_is_valid(winnr) then
-                vim.api.nvim_win_close(winnr, true)
-            end
             local bufnr = vim.api.nvim_get_current_buf()
             execute(bufnr, command, output_handler(bufnr))
         end
     })
+
     vim.api.nvim_create_autocmd("BufEnter", {
         group = group,
         pattern = pattern,
@@ -351,6 +365,12 @@ M.autorun = function()
             show_results(bufnr)
         end
     })
+
+    vim.api.nvim_create_user_command("GoTestMethod", function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        test_method(bufnr)
+    end, {})
 end
+
 
 return M
