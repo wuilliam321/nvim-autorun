@@ -15,7 +15,7 @@ You can use any nvim package manager, for example, using packer.nvim:
             local h = math.floor(vim.api.nvim_win_get_height(0) / 4)
             require('autorun').setup({
               show_returns = true,
-              go_tests = true,
+              run_on_save = false,
               window = {
                 relative = 'editor',
                 height = h,

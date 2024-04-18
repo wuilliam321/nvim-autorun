@@ -2,7 +2,7 @@ local config = {}
 
 local default_config = {
     show_returns = true,
-    go_tests = true,
+    run_on_save = false,
     window = {
         relative = 'editor',
         height = vim.api.nvim_win_get_height(0),

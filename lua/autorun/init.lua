@@ -14,9 +14,7 @@ M.setup = function(opts)
     end
 
     -- TODO: make it customizable by options
-    if cfg.go_tests then
-        require("autorun.go-tests").autorun()
-    end
+    require("autorun.go-tests").autorun()
 
     -- TODO: make it customizable by options
     -- require("autorun.autorun").setup()

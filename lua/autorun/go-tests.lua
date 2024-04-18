@@ -161,11 +161,16 @@ local find_lines = function(bufnr)
 end
 
 
+local clear_marks = function(bufnr)
+    vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+    vim.diagnostic.reset(ns, bufnr)
+end
+
 -- TODO: save each extmark in a table and delete it when the test is fixed, use the line to detect the test
 
 local show_results = function(bufnr)
-    vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
-    vim.diagnostic.reset(ns, bufnr)
+    clear_marks(bufnr)
+
     find_lines(bufnr)
     local diaginostics = {}
     for _, test in pairs(tests) do
@@ -311,6 +316,8 @@ local execute = function(bufnr, command, handler)
         vim.api.nvim_win_close(winnr, true)
     end
 
+    clear_marks(bufnr)
+
     vim.api.nvim_buf_create_user_command(bufnr, "GoTestDiag", function()
         local line = vim.fn.line(".") - 1
         show_line_diagonstics(line)
@@ -328,47 +335,55 @@ local execute = function(bufnr, command, handler)
 end
 
 local test_method = function(bufnr)
+    tests = {}
+    output = {}
     local func_name = vim.fn['cfi#format']("%s", "")
     if not func_name or func_name == "" then
         return
     end
     func_name = func_name:gsub("\"", "")
     func_name = func_name:gsub("[^%w\']+", "_")
-    local cmd = vim.fn.split(string.format("go test ./... -run %s -json -short", func_name), " ")
+    local cmd = vim.fn.split(string.format("go test ./... -run %s -json -short -v", func_name), " ")
     execute(bufnr, cmd, output_handler(bufnr))
+end
+
+local test_all = function(bufnr)
+    tests = {}
+    output = {}
+    local command = vim.fn.split("go test ./... -json -short -v", " ")
+    execute(bufnr, command, output_handler(bufnr))
 end
 
 local M = {}
 
 M.autorun = function()
-    -- TODO: create commands to start / stop the plugin
     local group = vim.api.nvim_create_augroup("WL", { clear = true })
-    local command = vim.fn.split("go test ./... -json -short", " ")
     local pattern = "*.go"
 
-    vim.api.nvim_create_autocmd("BufWritePost", {
-        group = group,
-        pattern = pattern,
-        callback = function()
-            tests = {}
-            output = {}
-            local bufnr = vim.api.nvim_get_current_buf()
-            execute(bufnr, command, output_handler(bufnr))
-        end
-    })
+    if default_opts.run_on_save then
+        vim.api.nvim_create_autocmd("BufWritePost", {
+            group = group,
+            pattern = pattern,
+            callback = function()
+                test_all(vim.api.nvim_get_current_buf())
+            end
+        })
+    end
 
     vim.api.nvim_create_autocmd("BufEnter", {
         group = group,
         pattern = pattern,
         callback = function()
-            local bufnr = vim.api.nvim_get_current_buf()
-            show_results(bufnr)
+            show_results(vim.api.nvim_get_current_buf())
         end
     })
 
     vim.api.nvim_create_user_command("GoTestMethod", function()
-        local bufnr = vim.api.nvim_get_current_buf()
-        test_method(bufnr)
+        test_method(vim.api.nvim_get_current_buf())
+    end, {})
+
+    vim.api.nvim_create_user_command("GoTestAll", function()
+        test_all(vim.api.nvim_get_current_buf())
     end, {})
 end
 
